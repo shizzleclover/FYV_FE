@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 152 89% 96%;
+    --foreground: 215 30% 26%;
+
+    --card: 152 89% 96%;
+    --card-foreground: 215 30% 26%;
+
+    --popover: 152 89% 96%;
+    --popover-foreground: 215 30% 26%;
+
+    --primary: 210 50% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 50% 69%;
+    --secondary-foreground: 215 30% 26%;
+
+    --muted: 200 50% 69%;
+    --muted-foreground: 215 30% 26%;
+
+    --accent: 120 70% 73%;
+    --accent-foreground: 215 30% 26%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 50% 69%;
+    --input: 200 50% 69%;
+    --ring: 210 50% 40%;
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-montserrat font-bold;
+  }
+}
+
+.card-shadow {
+  box-shadow: 0 4px 20px rgba(47, 72, 88, 0.1);
+}
+
+.animate-enter {
+  animation: enter 0.5s ease-out forwards;
+}
+
+@keyframes enter {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
