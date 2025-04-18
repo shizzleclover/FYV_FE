@@ -4,10 +4,10 @@ import QRCode from 'qrcode'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { eventCode: string } }
+  context: { params: { eventCode: string } }
 ) {
   try {
-    const { eventCode } = params
+    const { eventCode } = context.params
 
     if (!eventCode) {
       return NextResponse.json(

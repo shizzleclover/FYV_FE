@@ -41,7 +41,7 @@ const mockEvents = {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { eventCode: string } }
+  context: { params: { eventCode: string } }
 ) {
   try {
     // Get the Authorization header
@@ -71,7 +71,7 @@ export async function GET(
         email: string 
       }
       
-      const event = mockEvents[params.eventCode]
+      const event = mockEvents[context.params.eventCode]
       
       if (!event) {
         return NextResponse.json(
