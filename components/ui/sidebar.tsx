@@ -14,7 +14,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
@@ -198,10 +198,17 @@ const navItems = [
   },
 ]
 
-export function AppSidebar() {
+export function AppSidebar({ activeEventCode }: { activeEventCode?: string | null }) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(true)
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+  const [userName, setUserName] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Get user name from localStorage
+    const storedUserName = localStorage.getItem("userName")
+    setUserName(storedUserName)
+  }, [])
 
   const toggleSidebar = () => {
     setIsOpen(!isOpen)
@@ -245,20 +252,34 @@ export function AppSidebar() {
         </div>
 
         {/* Session status */}
-        <div className="border-b border-gray-200 bg-carolinaBlue/10 p-3 text-xs">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-medium text-charcoal">Event Code:</span>
-            <span className="rounded bg-lapisLazuli px-2 py-0.5 text-white">ABC123</span>
+        {activeEventCode ? (
+          <div className="border-b border-gray-200 bg-carolinaBlue/10 p-3 text-xs">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-medium text-charcoal">Event Code:</span>
+              <span className="rounded bg-lapisLazuli px-2 py-0.5 text-white">{activeEventCode}</span>
+            </div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-medium text-charcoal">Host:</span>
+              <span className="text-charcoal/70">{userName || "Host"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-charcoal">Status:</span>
+              <span className="rounded bg-green-100 px-2 py-0.5 text-green-800">Active</span>
+            </div>
           </div>
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-medium text-charcoal">Host:</span>
-            <span className="text-charcoal/70">EventHost</span>
+        ) : (
+          <div className="border-b border-gray-200 bg-gray-50 p-3 text-xs">
+            <div className="text-center text-charcoal/70">
+              <p className="mb-1">No active event</p>
+              <Link 
+                href="/create-event" 
+                className="inline-block rounded bg-lapisLazuli px-2 py-1 text-white hover:bg-lapisLazuli/90"
+              >
+                Create Event
+              </Link>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-charcoal">Participant ID:</span>
-            <span className="text-charcoal/70">P12345</span>
-          </div>
-        </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">

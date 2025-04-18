@@ -1,48 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
+import { findEventById, isUserRegisteredForEvent } from '@/app/lib/eventData'
+import { isPastEvent } from '@/app/lib/event'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-// Mock database for events (in a real app, this would be a database call)
-const mockEvents = {
-  '1': {
-    id: '1',
-    title: 'Tech Conference 2023',
-    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    location: 'San Francisco, CA',
-    description: 'Annual technology conference featuring the latest innovations',
-    eventCode: 'TECH2023',
-    attendeeCount: 42,
-    status: 'active',
-    organizer: 'TechCorp',
-    maxAttendees: 200,
-    attendees: [
-      { id: 'user1', name: 'John Doe', email: 'john@example.com' },
-      { id: 'user2', name: 'Jane Smith', email: 'jane@example.com' }
-    ]
-  },
-  '2': {
-    id: '2',
-    title: 'Networking Mixer',
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    location: 'New York, NY',
-    description: 'Professional networking event for industry leaders',
-    eventCode: 'NET2023',
-    attendeeCount: 28,
-    status: 'completed',
-    organizer: 'Business Network Inc',
-    maxAttendees: 50,
-    attendees: [
-      { id: 'user1', name: 'John Doe', email: 'john@example.com' },
-      { id: 'user3', name: 'Alex Johnson', email: 'alex@example.com' }
-    ]
-  }
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Get the Authorization header
-    const authHeader = req.headers.get('authorization')
+    // Extract authorization header
+    const authHeader = request.headers.get('authorization')
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
@@ -51,18 +17,11 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    // Extract the token
+    // Extract token
     const token = authHeader.split(' ')[1]
     
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Invalid token format' },
-        { status: 401 }
-      )
-    }
-    
     // Parse request body
-    const { eventId } = await req.json()
+    const { eventId } = await request.json()
     
     if (!eventId) {
       return NextResponse.json(
@@ -71,7 +30,8 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    const event = mockEvents[eventId]
+    // Find the event using the imported function
+    const event = findEventById(eventId)
     
     if (!event) {
       return NextResponse.json(
@@ -88,9 +48,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Check if the user is registered for this event
-      const userRegistered = event.attendees.some(
-        attendee => attendee.id === decoded.id || attendee.email === decoded.email
-      )
+      const userRegistered = isUserRegisteredForEvent(eventId, decoded.id)
       
       if (!userRegistered) {
         return NextResponse.json(
@@ -100,10 +58,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Check if the event has already started or completed
-      const eventDate = new Date(event.date)
-      const now = new Date()
-      
-      if (event.status === 'completed' || eventDate < now) {
+      if (isPastEvent(event)) {
         return NextResponse.json(
           { error: 'Cannot unregister from an event that has already started or completed' },
           { status: 400 }

@@ -7,6 +7,34 @@ import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
+// Mock database for demonstration
+// In a real app, this would be stored in a database
+const users = [
+  {
+    id: 'user1',
+    username: 'demohost',
+    email: 'host@example.com',
+    password: 'password123',
+    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    isHost: true,
+    eventCount: 3,
+    recentEvents: [
+      { eventCode: "ABC123", title: "Tech Conference 2023" },
+      { eventCode: "XYZ789", title: "Networking Mixer" }
+    ]
+  },
+  {
+    id: 'user2',
+    username: 'demoparticipant',
+    email: 'participant@example.com',
+    password: 'password123',
+    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    isHost: false,
+    eventCount: 0,
+    recentEvents: []
+  }
+]
+
 export async function GET(req: NextRequest) {
   try {
     // Get the Authorization header
@@ -33,22 +61,29 @@ export async function GET(req: NextRequest) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as { 
         id: string
+        username: string
         email: string
-        name: string
+        isHost: boolean
       }
       
-      // Return mock user data
-      // In a real app, you would fetch this from your database
+      // Find the user
+      const user = users.find(u => u.id === decoded.id)
+      
+      if (!user) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        )
+      }
+      
+      // Return user data without password
+      const { password, ...userWithoutPassword } = user
+      
       return NextResponse.json({
-        id: decoded.id,
-        name: decoded.name,
-        email: decoded.email,
-        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
-        eventCount: 2,
-        recentEvents: [
-          { eventCode: "ABC123" },
-          { eventCode: "XYZ789" }
-        ]
+        ...userWithoutPassword,
+        // Include additional profile information
+        profileComplete: true,
+        joinedDate: new Date(user.createdAt).toLocaleDateString(),
       })
       
     } catch (error) {

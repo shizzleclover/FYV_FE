@@ -1,24 +1,47 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { AnimatedCard } from "@/components/ui/animated-card"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { User, Lock, Mail, UserPlus, LogIn } from "lucide-react"
+import { login, register, isAuthenticated } from "@/lib/auth"
 
 export default function AuthPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirectTo") || ""
   
   const [isLogin, setIsLogin] = useState(true)
   const [formData, setFormData] = useState({
-    name: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: ""
   })
   const [loading, setLoading] = useState(false)
+  const [initialCheck, setInitialCheck] = useState(true)
+  
+  useEffect(() => {
+    // Check if user is already authenticated
+    if (isAuthenticated()) {
+      const isHost = localStorage.getItem("isHost") === "true"
+      
+      // If there's a redirect URL, use that
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else if (isHost) {
+        router.push('/dashboard')
+      } else {
+        router.push('/join-event')
+      }
+      return
+    }
+    
+    setInitialCheck(false)
+  }, [router, redirectTo])
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -30,12 +53,12 @@ export default function AuthPage() {
   
   const validateForm = () => {
     if (isLogin) {
-      if (!formData.email || !formData.password) {
-        toast.error("Please fill in all fields")
+      if (!formData.username || !formData.password) {
+        toast.error("Please enter both username and password")
         return false
       }
     } else {
-      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
         toast.error("Please fill in all fields")
         return false
       }
@@ -62,48 +85,54 @@ export default function AuthPage() {
     setLoading(true)
     
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
-      
-      const requestBody = isLogin 
-        ? { 
-            email: formData.email, 
-            password: formData.password 
+      if (isLogin) {
+        // Login process
+        const response = await login(formData.username, formData.password)
+        
+        if (response) {
+          toast.success("Logged in successfully")
+          
+          const isUserHost = response.user.isHost
+          
+          // Redirect based on saved redirect or user role
+          if (redirectTo) {
+            router.push(redirectTo)
+          } else if (isUserHost) {
+            router.push('/dashboard')
+          } else {
+            router.push('/join-event')
           }
-        : { 
-            name: formData.name, 
-            email: formData.email, 
-            password: formData.password 
+        }
+      } else {
+        // Registration process
+        const response = await register(formData.username, formData.email, formData.password)
+        
+        if (response) {
+          toast.success("Account created successfully")
+          
+          // Redirect based on saved redirect or default to dashboard
+          if (redirectTo) {
+            router.push(redirectTo)
+          } else {
+            // We assume all new users are hosts for this demo
+            router.push('/dashboard')
           }
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      })
-      
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.message || "Authentication failed")
+        }
       }
-      
-      // Store token in localStorage
-      localStorage.setItem('authToken', data.token)
-      localStorage.setItem('userName', isLogin ? data.name : formData.name)
-      localStorage.setItem('isHost', "true")
-      
-      toast.success(isLogin ? "Logged in successfully" : "Registered successfully")
-      
-      // Redirect to dashboard
-      router.push('/dashboard')
     } catch (error) {
       console.error("Authentication error:", error)
       toast.error((error as Error).message || "Authentication failed")
     } finally {
       setLoading(false)
     }
+  }
+  
+  if (initialCheck) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-lapisLazuli border-t-transparent"></div>
+      </div>
+    )
   }
   
   return (
@@ -124,47 +153,47 @@ export default function AuthPage() {
       
       <AnimatedCard className="w-full max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="username" className="block mb-1 text-sm font-medium text-charcoal">
+              Username
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <User className="w-5 h-5 text-charcoal/50" />
+              </div>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
+                className="bg-white border border-charcoal/20 text-charcoal text-sm rounded-lg focus:ring-lapisLazuli focus:border-lapisLazuli block w-full pl-10 p-2.5"
+                placeholder="Your username"
+              />
+            </div>
+          </div>
+          
           {!isLogin && (
             <div>
-              <label htmlFor="name" className="block mb-1 text-sm font-medium text-charcoal">
-                Name
+              <label htmlFor="email" className="block mb-1 text-sm font-medium text-charcoal">
+                Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <User className="w-5 h-5 text-charcoal/50" />
+                  <Mail className="w-5 h-5 text-charcoal/50" />
                 </div>
                 <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleInputChange}
                   className="bg-white border border-charcoal/20 text-charcoal text-sm rounded-lg focus:ring-lapisLazuli focus:border-lapisLazuli block w-full pl-10 p-2.5"
-                  placeholder="Your name"
+                  placeholder="your.email@example.com"
                 />
               </div>
             </div>
           )}
-          
-          <div>
-            <label htmlFor="email" className="block mb-1 text-sm font-medium text-charcoal">
-              Email
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Mail className="w-5 h-5 text-charcoal/50" />
-              </div>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="bg-white border border-charcoal/20 text-charcoal text-sm rounded-lg focus:ring-lapisLazuli focus:border-lapisLazuli block w-full pl-10 p-2.5"
-                placeholder="your.email@example.com"
-              />
-            </div>
-          </div>
           
           <div>
             <label htmlFor="password" className="block mb-1 text-sm font-medium text-charcoal">
@@ -236,6 +265,13 @@ export default function AuthPage() {
             {isLogin ? "Need an account? Register" : "Already have an account? Sign In"}
           </button>
         </div>
+        
+        {isLogin && (
+          <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs text-charcoal/70">
+            <p className="font-medium mb-1">Demo Credentials:</p>
+            <p>Username: <span className="font-mono bg-white px-1 py-0.5 rounded">demohost</span> | Password: <span className="font-mono bg-white px-1 py-0.5 rounded">password123</span></p>
+          </div>
+        )}
       </AnimatedCard>
     </main>
   )

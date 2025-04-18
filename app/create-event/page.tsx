@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { AnimatedButton } from "@/components/ui/button-animated"
@@ -14,6 +14,7 @@ import { ProgressSteps } from "@/components/ui/progress-steps"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { AnimatedCard } from "@/components/ui/animated-card"
 import { createEvent, Question } from "@/lib/api"
+import { isAuthenticated } from "@/lib/auth"
 import { toast } from "sonner"
 
 const DEFAULT_QUESTIONS: Question[] = [
@@ -58,6 +59,15 @@ export default function CreateEventPage() {
     useDefaultQuestions: true,
     customQuestions: [{ text: "", options: ["", "", ""] }],
   })
+  
+  // Check authentication on component mount
+  useEffect(() => {
+    // Redirect to auth page if user is not authenticated
+    if (!isAuthenticated()) {
+      toast.error("Please log in to create an event")
+      router.push('/auth?redirectTo=/create-event')
+    }
+  }, [router])
 
   const handleNext = () => {
     if (!eventData.hostName.trim()) {

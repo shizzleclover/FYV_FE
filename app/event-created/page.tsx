@@ -7,6 +7,7 @@ import { AnimatedCard } from "@/components/ui/animated-card"
 import { Check, Copy, Share2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
+import EventQRCode from "@/components/EventQRCode"
 
 export default function EventCreatedPage() {
   const router = useRouter()
@@ -67,7 +68,7 @@ export default function EventCreatedPage() {
         className="mb-8 text-center"
       >
         <h1 className="mb-2 text-3xl font-bold text-charcoal">Event Created!</h1>
-        <p className="text-charcoal/70">Share the code below with your participants</p>
+        <p className="text-charcoal/70">Share the code or QR code below with your participants</p>
       </motion.div>
 
       <AnimatedCard className="mb-8 w-full max-w-md">
@@ -84,7 +85,7 @@ export default function EventCreatedPage() {
           </div>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center mb-6">
           <AnimatedButton 
             className="flex items-center gap-2 bg-carolinaBlue text-charcoal hover:bg-carolinaBlue/90"
             onClick={shareEvent}
@@ -93,6 +94,20 @@ export default function EventCreatedPage() {
             Share Event
           </AnimatedButton>
         </div>
+        
+        {eventCode && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mt-4"
+          >
+            <p className="mb-3 text-center text-sm font-medium text-charcoal/70">
+              Or Share This QR Code
+            </p>
+            <EventQRCode eventCode={eventCode} showTitle={false} />
+          </motion.div>
+        )}
       </AnimatedCard>
 
       <div className="flex w-full max-w-md flex-col gap-4">

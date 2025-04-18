@@ -2,37 +2,109 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatedCard } from "@/components/ui/animated-card"
 import { Button } from "@/components/ui/button"
-import { Users, Calendar, Heart, MessageCircle, Star, ArrowRight, Loader2, Copy } from "lucide-react"
+import { Users, Calendar, Heart, MessageCircle, Star, ArrowRight, Loader2, Copy, QrCode } from "lucide-react"
 import { getEventDetails, getFollowupStats, triggerMatchmaking, startEventCountdown } from "@/lib/api"
-import { startCountdown, triggerMatchReveal } from "@/lib/socket"
+import { startCountdown, triggerMatchReveal, connectToSocket } from "@/lib/socket"
 import { toast } from "sonner"
+import EventQRCode from "@/components/EventQRCode"
 
 export default function DashboardPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [eventCode, setEventCode] = useState<string | null>(null)
   const [eventDetails, setEventDetails] = useState<any>(null)
   const [followupStats, setFollowupStats] = useState<any>(null)
+  const [isReconnecting, setIsReconnecting] = useState(false)
+  const [showQrCode, setShowQrCode] = useState(false)
   
   useEffect(() => {
-    // Check localStorage for the event code
-    const storedEventCode = localStorage.getItem("eventCode")
-    const isHost = localStorage.getItem("isHost") === "true"
-    
-    if (!storedEventCode || !isHost) {
-      setLoading(false)
-      return
+    const checkAndLoadEvent = () => {
+      // First check URL params
+      const urlEventCode = searchParams.get("eventCode")
+      
+      // Then check localStorage
+      const storedEventCode = localStorage.getItem("eventCode")
+      const isHost = localStorage.getItem("isHost") === "true"
+      
+      if (!isHost) {
+        // Redirect non-hosts to join page
+        toast.error("Only hosts can access the dashboard")
+        router.push("/join-event")
+        return false
+      }
+      
+      // Determine which event code to use (URL param takes precedence)
+      const codeToUse = urlEventCode || storedEventCode
+      
+      if (!codeToUse) {
+        // No event code found, but user is a host, so they can create an event
+        setLoading(false)
+        return false
+      }
+      
+      // If URL doesn't have the event code but localStorage does, update URL
+      if (!urlEventCode && storedEventCode) {
+        router.push(`/dashboard?eventCode=${storedEventCode}`)
+      }
+      
+      // Store event code in state and localStorage
+      setEventCode(codeToUse)
+      if (codeToUse !== storedEventCode) {
+        localStorage.setItem("eventCode", codeToUse)
+      }
+      
+      // Fetch event details
+      fetchEventDetails(codeToUse)
+      
+      // Connect to socket for real-time updates
+      const socket = connectToSocket(codeToUse)
+      
+      // Handle participant updates
+      socket.on('participants', (data) => {
+        // Refresh event details to get the latest participant count
+        fetchEventDetails(codeToUse, false)
+      })
+      
+      // Handle socket reconnection
+      socket.on('connect', () => {
+        if (isReconnecting) {
+          toast.success("Reconnected to event server")
+          setIsReconnecting(false)
+          fetchEventDetails(codeToUse, false)
+        }
+      })
+      
+      socket.on('disconnect', () => {
+        setIsReconnecting(true)
+        toast.error("Connection to event server lost. Reconnecting...")
+      })
+      
+      return true
     }
     
-    setEventCode(storedEventCode)
-    fetchEventDetails(storedEventCode)
-  }, [])
+    checkAndLoadEvent()
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(() => {
+      if (eventCode) {
+        fetchEventDetails(eventCode, false)
+      }
+    }, 30000)
+    
+    return () => {
+      clearInterval(interval)
+    }
+  }, [searchParams, router])
   
-  const fetchEventDetails = async (code: string) => {
-    setLoading(true)
+  const fetchEventDetails = async (code: string, showLoading = true) => {
+    if (showLoading) {
+      setLoading(true)
+    }
+    
     try {
       const event = await getEventDetails(code)
       if (event) {
@@ -43,12 +115,24 @@ export default function DashboardPage() {
         if (stats) {
           setFollowupStats(stats)
         }
+      } else {
+        // Event not found, clear localStorage
+        if (code === localStorage.getItem("eventCode")) {
+          localStorage.removeItem("eventCode")
+        }
+        
+        toast.error("Event not found or has been deleted")
+        router.push("/create-event")
       }
     } catch (error) {
       console.error("Error fetching event details:", error)
-      toast.error("Failed to load event details")
+      if (showLoading) {
+        toast.error("Failed to load event details")
+      }
     } finally {
-      setLoading(false)
+      if (showLoading) {
+        setLoading(false)
+      }
     }
   }
   
@@ -93,11 +177,9 @@ export default function DashboardPage() {
   }
   
   const handleCreateEvent = () => {
+    // Clear any existing event code
+    localStorage.removeItem("eventCode")
     router.push("/create-event")
-  }
-  
-  const handleJoinEvent = () => {
-    router.push("/join-event")
   }
   
   const handleViewLeaderboard = () => {
@@ -106,6 +188,10 @@ export default function DashboardPage() {
     } else {
       toast.error("No active event found")
     }
+  }
+
+  const toggleQrCode = () => {
+    setShowQrCode(!showQrCode)
   }
 
   const stats = [
@@ -134,7 +220,10 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-lapisLazuli" />
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-lapisLazuli" />
+          <p className="text-charcoal/70">Loading event details...</p>
+        </div>
       </div>
     )
   }
@@ -148,7 +237,7 @@ export default function DashboardPage() {
             <p className="text-charcoal/70">
               Managing event: <span className="ml-1 font-bold text-lapisLazuli">{eventDetails.eventCode}</span>
             </p>
-            <p className="mt-1 flex items-center text-sm text-charcoal/70">
+            <div className="mt-1 flex items-center text-sm text-charcoal/70">
               <span>Share this code with participants</span>
               <button 
                 onClick={() => {
@@ -156,35 +245,74 @@ export default function DashboardPage() {
                   toast.success("Event code copied to clipboard!");
                 }}
                 className="ml-2 rounded-full p-1 hover:bg-carolinaBlue/10"
+                title="Copy event code"
               >
                 <Copy className="h-4 w-4" />
               </button>
-            </p>
+              <button
+                onClick={toggleQrCode}
+                className="ml-2 rounded-full p-1 hover:bg-carolinaBlue/10"
+                title="Show QR code"
+              >
+                <QrCode className="h-4 w-4" />
+              </button>
+            </div>
+            
+            {showQrCode && eventCode && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-4 w-full max-w-md"
+              >
+                <AnimatedCard>
+                  <EventQRCode eventCode={eventCode} />
+                </AnimatedCard>
+              </motion.div>
+            )}
+            
+            {isReconnecting && (
+              <div className="mt-2 flex items-center rounded-md bg-amber-50 p-2 text-sm text-amber-800">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Reconnecting to event server...
+              </div>
+            )}
           </div>
         ) : (
-          <p className="text-charcoal/70">Create or join an event to get started</p>
+          <div>
+            <p className="mb-4 text-charcoal/70">You don't have any active events</p>
+            <Button 
+              className="bg-lapisLazuli text-white hover:bg-lapisLazuli/90"
+              onClick={handleCreateEvent}
+            >
+              <Calendar className="mr-2 h-4 w-4" /> Create New Event
+            </Button>
+          </div>
         )}
       </div>
 
       {/* Stats */}
-      <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-          >
-            <AnimatedCard className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-charcoal/70">{stat.title}</p>
-                <p className="text-2xl font-bold text-charcoal">{stat.value}</p>
-              </div>
-              <div className="rounded-full bg-carolinaBlue/10 p-3">{stat.icon}</div>
-            </AnimatedCard>
-          </motion.div>
-        ))}
-      </div>
+      {eventDetails && (
+        <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+            >
+              <AnimatedCard className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-charcoal/70">{stat.title}</p>
+                  <p className="text-2xl font-bold text-charcoal">{stat.value}</p>
+                </div>
+                <div className="rounded-full bg-carolinaBlue/10 p-3">{stat.icon}</div>
+              </AnimatedCard>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Event Details */}
       {eventDetails && (
@@ -250,62 +378,43 @@ export default function DashboardPage() {
                     onClick={() => router.push(`/follow-up?eventCode=${eventDetails.eventCode}`)}
                   >
                     <MessageCircle className="mr-2 h-4 w-4" /> View Follow-ups
-                      </Button>
-          </div>
-        </div>
-      </div>
+                  </Button>
+                  
+                  <Button 
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={handleViewLeaderboard}
+                  >
+                    <Star className="mr-2 h-4 w-4" /> View Leaderboard
+                  </Button>
+                </div>
+              </div>
+            </div>
           </AnimatedCard>
-        </div>
+      </div>
       )}
 
-      {/* Quick Actions */}
-      <div>
-        <h2 className="mb-4 text-xl font-semibold text-charcoal">Quick Actions</h2>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <AnimatedCard className="flex flex-col items-center text-center">
-            <div className="mb-4 rounded-full bg-lapisLazuli p-4 text-white">
-              <Calendar className="h-6 w-6" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold text-charcoal">Create Event</h3>
-            <p className="mb-4 text-sm text-charcoal/70">Set up a new event with custom questions</p>
+      {/* Getting Started */}
+      {!eventDetails && (
+        <AnimatedCard className="p-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h2 className="mb-4 text-xl font-semibold text-charcoal">Get Started</h2>
+            <p className="mb-6 text-charcoal/70">
+              Create a new event to start matching participants
+            </p>
             <Button 
-              className="mt-auto bg-lapisLazuli text-white hover:bg-lapisLazuli/90"
+              className="bg-lapisLazuli text-white hover:bg-lapisLazuli/90"
               onClick={handleCreateEvent}
             >
-              Create Now
+              <Calendar className="mr-2 h-4 w-4" /> Create New Event
             </Button>
-          </AnimatedCard>
-
-          <AnimatedCard className="flex flex-col items-center text-center">
-            <div className="mb-4 rounded-full bg-carolinaBlue p-4 text-white">
-              <Users className="h-6 w-6" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold text-charcoal">Join Event</h3>
-            <p className="mb-4 text-sm text-charcoal/70">Join an existing event with a code</p>
-            <Button 
-              className="mt-auto bg-carolinaBlue text-white hover:bg-carolinaBlue/90"
-              onClick={handleJoinEvent}
-            >
-              Join Now
-            </Button>
-          </AnimatedCard>
-
-          <AnimatedCard className="flex flex-col items-center text-center">
-            <div className="mb-4 rounded-full bg-charcoal p-4 text-white">
-              <Star className="h-6 w-6" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold text-charcoal">View Leaderboard</h3>
-            <p className="mb-4 text-sm text-charcoal/70">See top-rated outfits and matches</p>
-            <Button 
-              className="mt-auto bg-charcoal text-white hover:bg-charcoal/90"
-              onClick={handleViewLeaderboard}
-            >
-              View Now
-            </Button>
-          </AnimatedCard>
-        </div>
-      </div>
+          </motion.div>
+        </AnimatedCard>
+      )}
     </div>
   )
 }

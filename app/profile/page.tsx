@@ -7,22 +7,27 @@ import { AnimatedCard } from "@/components/ui/animated-card"
 import { Button } from "@/components/ui/button"
 import { Calendar, Users, Mail, LogOut, User, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { getUserProfile, logout, isAuthenticated } from "@/lib/auth"
 
 interface HostProfile {
-  id: string
-  name: string
-  email: string
-  createdAt: string
-  eventCount: number
+  id: string;
+  username: string;
+  email: string;
+  createdAt: string;
+  isHost: boolean;
+  eventCount: number;
+  recentEvents: Array<{eventCode: string, title?: string}>;
+  profileComplete?: boolean;
+  joinedDate?: string;
 }
 
 interface Event {
-  id: string
-  eventCode: string
-  name?: string
-  createdAt: string
-  participantCount: number
-  isActive: boolean
+  id: string;
+  eventCode: string;
+  title?: string;
+  createdAt: string;
+  participantCount: number;
+  isActive: boolean;
 }
 
 export default function ProfilePage() {
@@ -32,54 +37,43 @@ export default function ProfilePage() {
   const [events, setEvents] = useState<Event[]>([])
   
   useEffect(() => {
-    fetchProfile()
-  }, [])
-  
-  const fetchProfile = async () => {
-    setLoading(true)
-    
-    const token = localStorage.getItem('authToken')
-    
-    if (!token) {
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
       toast.error("You need to sign in first")
       router.push('/auth')
       return
     }
     
+    fetchProfile()
+  }, [router])
+  
+  const fetchProfile = async () => {
+    setLoading(true)
+    
     try {
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const userData = await getUserProfile()
       
-      if (!response.ok) {
-        throw new Error("Failed to fetch profile")
+      if (!userData) {
+        toast.error("Failed to fetch profile")
+        router.push('/auth')
+        return
       }
       
-      const data = await response.json()
-      setProfile(data)
+      setProfile(userData as HostProfile)
       
-      // For demo purposes, we're creating mock events
-      // In a real app, you'd fetch this from an API endpoint
-      const mockEvents: Event[] = [
-        {
-          id: "1",
-          eventCode: data.recentEvents?.[0]?.eventCode || "ABC123",
-          createdAt: new Date().toISOString(),
-          participantCount: 12,
+      // Transform recent events to our Event interface format
+      if (userData.recentEvents && userData.recentEvents.length > 0) {
+        const formattedEvents: Event[] = userData.recentEvents.map((event, index) => ({
+          id: index.toString(),
+          eventCode: event.eventCode,
+          title: event.title || `Event ${event.eventCode}`,
+          createdAt: new Date().toISOString(), // Mock date
+          participantCount: Math.floor(Math.random() * 20) + 5, // Random participants between 5-25
           isActive: true
-        },
-        {
-          id: "2",
-          eventCode: data.recentEvents?.[1]?.eventCode || "XYZ789",
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // yesterday
-          participantCount: 8,
-          isActive: false
-        }
-      ]
-      
-      setEvents(mockEvents)
+        }))
+        
+        setEvents(formattedEvents)
+      }
     } catch (error) {
       console.error("Error fetching profile:", error)
       toast.error("Failed to load profile")
@@ -89,9 +83,7 @@ export default function ProfilePage() {
   }
   
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('userName')
-    localStorage.removeItem('isHost')
+    logout()
     toast.success("Logged out successfully")
     router.push('/auth')
   }
@@ -124,7 +116,7 @@ export default function ProfilePage() {
                 <User className="h-12 w-12 text-white" />
               </div>
               
-              <h2 className="mb-1 text-xl font-bold text-charcoal">{profile?.name}</h2>
+              <h2 className="mb-1 text-xl font-bold text-charcoal">{profile?.username}</h2>
               <p className="flex items-center text-sm text-charcoal/70">
                 <Mail className="mr-1 h-4 w-4" /> {profile?.email}
               </p>
@@ -139,7 +131,7 @@ export default function ProfilePage() {
                 <div>
                   <p className="text-sm text-charcoal/70">Since</p>
                   <p className="text-sm font-medium text-charcoal">
-                    {profile ? new Date(profile.createdAt).toLocaleDateString() : "-"}
+                    {profile?.joinedDate || (profile ? new Date(profile.createdAt).toLocaleDateString() : "-")}
                   </p>
                 </div>
               </div>
@@ -176,7 +168,7 @@ export default function ProfilePage() {
                     <div>
                       <div className="flex items-center">
                         <span className="mr-2 inline-block h-3 w-3 rounded-full bg-lapisLazuli"></span>
-                        <h3 className="text-lg font-medium text-charcoal">Event {event.eventCode}</h3>
+                        <h3 className="text-lg font-medium text-charcoal">{event.title || `Event ${event.eventCode}`}</h3>
                         <span 
                           className={`ml-3 rounded-full px-2 py-0.5 text-xs font-medium ${
                             event.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
@@ -199,7 +191,10 @@ export default function ProfilePage() {
                         variant="outline" 
                         size="sm"
                         className="border-lapisLazuli text-lapisLazuli hover:bg-lapisLazuli/10"
-                        onClick={() => router.push(`/dashboard?eventCode=${event.eventCode}`)}
+                        onClick={() => {
+                          localStorage.setItem('eventCode', event.eventCode)
+                          router.push(`/dashboard?eventCode=${event.eventCode}`)
+                        }}
                       >
                         Manage
                       </Button>
@@ -207,7 +202,10 @@ export default function ProfilePage() {
                         <Button 
                           size="sm"
                           className="bg-lapisLazuli text-white hover:bg-lapisLazuli/90"
-                          onClick={() => navigator.clipboard.writeText(event.eventCode) && toast.success("Event code copied!")}
+                          onClick={() => {
+                            navigator.clipboard.writeText(event.eventCode)
+                            toast.success("Event code copied!")
+                          }}
                         >
                           Share Code
                         </Button>
