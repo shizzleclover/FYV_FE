@@ -64,24 +64,26 @@ export default function DashboardPage() {
       const socket = connectToSocket(codeToUse)
       
       // Handle participant updates
-      socket.on('participants', (data) => {
-        // Refresh event details to get the latest participant count
-        fetchEventDetails(codeToUse, false)
-      })
-      
-      // Handle socket reconnection
-      socket.on('connect', () => {
-        if (isReconnecting) {
-          toast.success("Reconnected to event server")
-          setIsReconnecting(false)
+      if (socket) {
+        socket.on('participants', (data) => {
+          // Refresh event details to get the latest participant count
           fetchEventDetails(codeToUse, false)
-        }
-      })
-      
-      socket.on('disconnect', () => {
-        setIsReconnecting(true)
-        toast.error("Connection to event server lost. Reconnecting...")
-      })
+        })
+        
+        // Handle socket reconnection
+        socket.on('connect', () => {
+          if (isReconnecting) {
+            toast.success("Reconnected to event server")
+            setIsReconnecting(false)
+            fetchEventDetails(codeToUse, false)
+          }
+        })
+        
+        socket.on('disconnect', () => {
+          setIsReconnecting(true)
+          toast.error("Connection to event server lost. Reconnecting...")
+        })
+      }
       
       return true
     }

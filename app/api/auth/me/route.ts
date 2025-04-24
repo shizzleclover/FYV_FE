@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import jwt from 'jsonwebtoken'
+import { API_BASE_URL } from '@/lib/api'
 
 // This is a mock implementation for demonstration purposes
 // In a real application, you would connect to your database
@@ -40,59 +40,28 @@ export async function GET(req: NextRequest) {
     // Get the Authorization header
     const authHeader = req.headers.get('authorization')
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       )
     }
     
-    // Extract the token
-    const token = authHeader.split(' ')[1]
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Invalid token format' },
-        { status: 401 }
-      )
-    }
-    
-    // Verify the token
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { 
-        id: string
-        username: string
-        email: string
-        isHost: boolean
+    // Forward the request to the real API
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
       }
-      
-      // Find the user
-      const user = users.find(u => u.id === decoded.id)
-      
-      if (!user) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        )
-      }
-      
-      // Return user data without password
-      const { password, ...userWithoutPassword } = user
-      
-      return NextResponse.json({
-        ...userWithoutPassword,
-        // Include additional profile information
-        profileComplete: true,
-        joinedDate: new Date(user.createdAt).toLocaleDateString(),
-      })
-      
-    } catch (error) {
-      console.error("Token verification failed:", error)
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      )
-    }
+    })
+    
+    // Get the response data
+    const data = await response.json()
+    
+    // Return the response from the API with the same status
+    return NextResponse.json(data, { status: response.status })
+    
   } catch (error) {
     console.error("Server error:", error)
     return NextResponse.json(

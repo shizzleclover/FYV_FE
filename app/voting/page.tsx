@@ -95,25 +95,26 @@ export default function VotingPage() {
 
         <ProgressSteps steps={outfitsData.length} currentStep={currentOutfit + 1} className="mb-8" />
 
-        <AnimatedCard
+        <motion.div
           key={currentOutfit}
-          className="mb-8"
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -50 }}
         >
-          <div className="mb-6 rounded-lg bg-carolinaBlue/10 p-6">
-            <p className="text-center text-charcoal">{outfitsData[currentOutfit].description}</p>
-          </div>
+          <AnimatedCard className="mb-8">
+            <div className="mb-6 rounded-lg bg-carolinaBlue/10 p-6">
+              <p className="text-center text-charcoal">{outfitsData[currentOutfit].description}</p>
+            </div>
 
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-sm font-medium text-charcoal/70">How would you rate this outfit?</p>
-            <StarRating size="lg" onRatingChange={handleRating} className="mb-2" />
-            {ratings[outfitsData[currentOutfit].id] && (
-              <p className="text-lapisLazuli">You rated this outfit {ratings[outfitsData[currentOutfit].id]}/5</p>
-            )}
-          </div>
-        </AnimatedCard>
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm font-medium text-charcoal/70">How would you rate this outfit?</p>
+              <StarRating size="lg" onRatingChange={handleRating} className="mb-2" />
+              {ratings[outfitsData[currentOutfit].id] && (
+                <p className="text-lapisLazuli">You rated this outfit {ratings[outfitsData[currentOutfit].id]}/5</p>
+              )}
+            </div>
+          </AnimatedCard>
+        </motion.div>
 
         <AnimatedButton
           onClick={handleNext}

@@ -11,12 +11,13 @@ import { getUserProfile, logout, isAuthenticated } from "@/lib/auth"
 
 interface HostProfile {
   id: string;
-  username: string;
+  username?: string;
+  name: string;
   email: string;
   createdAt: string;
   isHost: boolean;
-  eventCount: number;
-  recentEvents: Array<{eventCode: string, title?: string}>;
+  eventCount?: number;
+  recentEvents?: Array<{eventCode: string, title?: string}>;
   profileComplete?: boolean;
   joinedDate?: string;
 }
@@ -62,8 +63,8 @@ export default function ProfilePage() {
       setProfile(userData as HostProfile)
       
       // Transform recent events to our Event interface format
-      if (userData.recentEvents && userData.recentEvents.length > 0) {
-        const formattedEvents: Event[] = userData.recentEvents.map((event, index) => ({
+      if ((userData as any).recentEvents && (userData as any).recentEvents.length > 0) {
+        const formattedEvents: Event[] = (userData as any).recentEvents.map((event: any, index: number) => ({
           id: index.toString(),
           eventCode: event.eventCode,
           title: event.title || `Event ${event.eventCode}`,
@@ -116,7 +117,7 @@ export default function ProfilePage() {
                 <User className="h-12 w-12 text-white" />
               </div>
               
-              <h2 className="mb-1 text-xl font-bold text-charcoal">{profile?.username}</h2>
+              <h2 className="mb-1 text-xl font-bold text-charcoal">{profile?.username || profile?.name}</h2>
               <p className="flex items-center text-sm text-charcoal/70">
                 <Mail className="mr-1 h-4 w-4" /> {profile?.email}
               </p>

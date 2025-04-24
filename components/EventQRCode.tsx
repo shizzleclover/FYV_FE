@@ -21,8 +21,8 @@ export default function EventQRCode({ eventCode, showTitle = true }: EventQRCode
     async function fetchQRCode() {
       try {
         setLoading(true)
-        // Use the new QR code endpoint
-        const response = await fetch(`/api/qrcode/${eventCode}`)
+        // Use the new QR code endpoint with query parameter
+        const response = await fetch(`/api/event-qrcode?code=${eventCode}`)
         
         if (!response.ok) {
           throw new Error(`Failed to fetch QR code: ${response.status} ${response.statusText}`)

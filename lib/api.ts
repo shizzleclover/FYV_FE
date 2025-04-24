@@ -2,8 +2,8 @@ import { toast } from "sonner"
 import { getAuthHeader } from "./auth"
 
 // Use localhost for development, update for production
-export const API_BASE_URL = 'http://localhost:5000/api';
-export const SOCKET_URL = 'http://localhost:5000';
+export const API_BASE_URL = 'https://fyvbe-production.up.railway.app/api';
+export const SOCKET_URL = 'https://fyvbe-production.up.railway.app';
 
 // Disable mock API - we want to use the real backend 
 const useMockApi = false;

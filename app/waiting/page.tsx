@@ -57,30 +57,32 @@ export default function WaitingPage() {
     )
     
     // Handle participant updates
-    socket.on('participants', (data: { participants: string[] }) => {
-      setParticipantList(data.participants)
-      setParticipants(data.participants.length)
-    })
-    
-    // Handle countdown start
-    socket.on('countdown:start', (data: { duration: number }) => {
-      const now = new Date()
-      const endTime = new Date(now.getTime() + data.duration * 1000)
-      setTargetTime(endTime)
+    if (socket) {
+      socket.on('participants', (data: { participants: string[] }) => {
+        setParticipantList(data.participants)
+        setParticipants(data.participants.length)
+      })
       
-      // Refresh event details to get the latest
-      fetchEventDetails(eventCode)
-    })
-    
-    // Handle event timer update
-    socket.on('event:timerUpdate', (data: { targetTime: string }) => {
-      setTargetTime(new Date(data.targetTime))
-    })
-    
-    // Redirect for match reveal
-    socket.on('event:matchReveal', () => {
-      router.push(`/voting?eventCode=${eventCode}`)
-    })
+      // Handle countdown start
+      socket.on('countdown:start', (data: { duration: number }) => {
+        const now = new Date()
+        const endTime = new Date(now.getTime() + data.duration * 1000)
+        setTargetTime(endTime)
+        
+        // Refresh event details to get the latest
+        fetchEventDetails(eventCode)
+      })
+      
+      // Handle event timer update
+      socket.on('event:timerUpdate', (data: { targetTime: string }) => {
+        setTargetTime(new Date(data.targetTime))
+      })
+      
+      // Redirect for match reveal
+      socket.on('event:matchReveal', () => {
+        router.push(`/voting?eventCode=${eventCode}`)
+      })
+    }
     
     // Poll for updates every 15 seconds
     const interval = setInterval(() => {
@@ -90,10 +92,12 @@ export default function WaitingPage() {
     // Cleanup
     return () => {
       clearInterval(interval)
-      socket.off('participants')
-      socket.off('countdown:start')
-      socket.off('event:timerUpdate')
-      socket.off('event:matchReveal')
+      if (socket) {
+        socket.off('participants')
+        socket.off('countdown:start')
+        socket.off('event:timerUpdate')
+        socket.off('event:matchReveal')
+      }
     }
   }, [router, searchParams])
   
@@ -105,8 +109,8 @@ export default function WaitingPage() {
         setParticipants(event.participantCount)
         
         // Set mock participant list if not available from socket
-        if (participantList.length === 0 && event.participants) {
-          setParticipantList(event.participants.map((p: any) => p.name || "Anonymous"))
+        if (participantList.length === 0 && (event as any).participants) {
+          setParticipantList((event as any).participants.map((p: any) => p.name || "Anonymous"))
         }
         
         // If the event has started, set the target time

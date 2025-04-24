@@ -1,49 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
+import { findEventByCode } from '@/app/lib/eventData'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-// Mock database for events
-const mockEvents = {
-  '1': {
-    id: '1',
-    title: 'Tech Conference 2023',
-    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    location: 'San Francisco, CA',
-    description: 'Annual technology conference featuring the latest innovations',
-    eventCode: 'TECH2023',
-    attendeeCount: 42,
-    status: 'active',
-    organizer: 'TechCorp',
-    maxAttendees: 200,
-    attendees: [
-      { id: 'user1', name: 'John Doe', email: 'john@example.com' },
-      { id: 'user2', name: 'Jane Smith', email: 'jane@example.com' }
-    ]
-  },
-  '2': {
-    id: '2',
-    title: 'Networking Mixer',
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    location: 'New York, NY',
-    description: 'Professional networking event for industry leaders',
-    eventCode: 'NET2023',
-    attendeeCount: 28,
-    status: 'completed',
-    organizer: 'Business Network Inc',
-    maxAttendees: 50,
-    attendees: [
-      { id: 'user1', name: 'John Doe', email: 'john@example.com' },
-      { id: 'user3', name: 'Alex Johnson', email: 'alex@example.com' }
-    ]
-  }
-}
-
-export async function GET(
-  req: NextRequest,
-  context: { params: { eventCode: string } }
-) {
+export async function GET(req: NextRequest) {
   try {
+    // Get event code from query parameter
+    const eventCode = req.nextUrl.searchParams.get('code')
+    
+    if (!eventCode) {
+      return NextResponse.json(
+        { error: 'Event code is required' },
+        { status: 400 }
+      )
+    }
+
     // Get the Authorization header
     const authHeader = req.headers.get('authorization')
     
@@ -71,7 +43,8 @@ export async function GET(
         email: string 
       }
       
-      const event = mockEvents[context.params.eventCode]
+      // Find event using the actual API data
+      const event = findEventByCode(eventCode)
       
       if (!event) {
         return NextResponse.json(

@@ -13,10 +13,15 @@ const nextConfig = {
   },
   async rewrites() {
     return [
-      // Handle QR code endpoint specifically
+      // Handle QR code endpoint using query parameters
       {
-        source: '/api/qrcode/:eventCode',
-        destination: 'https://fyvbe.onrender.com/api/events/:eventCode/qrcode',
+        source: '/api/event-qrcode',
+        destination: 'https://fyvbe.onrender.com/api/events/qrcode',
+      },
+      // Handle event details endpoint using query parameters
+      {
+        source: '/api/event-details',
+        destination: 'https://fyvbe.onrender.com/api/events/details',
       },
       // Handle other API routes
       {

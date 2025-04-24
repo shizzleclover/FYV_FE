@@ -3,10 +3,10 @@
 import type React from "react"
 
 import { cn } from "@/lib/utils"
-import { motion } from "framer-motion"
+import { motion, HTMLMotionProps } from "framer-motion"
 import { forwardRef } from "react"
 
-export interface AnimatedCardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface AnimatedCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onDrag' | 'onDragStart' | 'onDragEnd'> {
   delay?: number
 }
 

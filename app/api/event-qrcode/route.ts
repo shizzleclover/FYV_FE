@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { findEventByCode } from '@/app/lib/eventData'
 import QRCode from 'qrcode'
 
-export async function GET(
-  request: NextRequest,
-  context: { params: { code: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const { code } = context.params
-    const eventCode = code
+    // Get the event code from the query parameter
+    const searchParams = request.nextUrl.searchParams
+    const eventCode = searchParams.get('code')
 
     if (!eventCode) {
       return NextResponse.json(
@@ -17,7 +15,7 @@ export async function GET(
       )
     }
 
-    // Find the event by code
+    // Find the event by code using the proper data source
     const event = findEventByCode(eventCode)
 
     if (!event) {
